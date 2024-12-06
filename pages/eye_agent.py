@@ -27,38 +27,38 @@ st.title("Visual Recognition Agent")
 # Function to generate structured plan for visual tasks
 def generate_visual_plan(user_input):
     prompt = f"""
-        ### API 描述
+        ### API Description
 
-        1. **获取当前摄像头图像 API**
-        - **名称**：获取当前摄像头图像
-        - **参数**：无
+        1. **Get Current Camera Image API**
+        - **Name**: get_current_camera_image
+        - **Parameters**: None
 
-        2. **检测物体 API**
-        - **名称**：检测物体
-        - **参数**：
-            - `image`: 要检测的图像数据。
+        2. **Detect Objects API**
+        - **Name**: detect_objects
+        - **Parameters**:
+            - `image`: The image data to be processed.
 
-        3. **分类材质 API**
-        - **名称**：分类材质
-        - **参数**：
-            - `object`: 要分类的物体信息。
+        3. **Classify Material API**
+        - **Name**: classify_material
+        - **Parameters**:
+            - `object`: The information of the object to be classified.
 
-        4. **获取物体姿态 API**
-        - **名称**：获取物体姿态
-        - **参数**：
-            - `object`: 要获取姿态的物体信息。
+        4. **Get Object Pose API**
+        - **Name**: get_object_pose
+        - **Parameters**:
+            - `object`: The information of the object for which to obtain pose data.
 
-        请根据以下用户输入生成一个结构化计划，格式为纯 JSON，不要添加任何其他文本：
+        Please generate a structured plan based on the following user input, formatted as pure JSON without adding any other text:
         
-        用户输入: "{user_input}"
+        User Input: "{user_input}"
         
-        输出格式:
+        Output Format:
         {{
             "tasks": [
-                {{"id": "task1", "description": "获取当前摄像头图像", "api_name": "获取当前摄像头图像", "api_params": {{}}, "depends_on": []}},
-                {{"id": "task2", "description": "检测图像中的物体", "api_name": "检测物体", "api_params": {{"image": "task1_result"}}, "depends_on": ["task1"]}},
-                {{"id": "task3", "description": "分类检测到的物体材质", "api_name": "分类材质", "api_params": {{"object": "task2_result"}}, "depends_on": ["task2"]}},
-                {{"id": "task4", "description": "获取检测到的物体姿态信息", "api_name": "获取物体姿态", "api_params": {{"object": "task2_result"}}, "depends_on": ["task2"]}}
+                {{"id": "task1", "description": "Get current camera image", "api_name": "get_current_camera_image", "api_params": {{}}, "depends_on": []}},
+                {{"id": "task2", "description": "Detect objects in the image", "api_name": "detect_objects", "api_params": {{"image": "task1_result"}}, "depends_on": ["task1"]}},
+                {{"id": "task3", "description": "Classify the material of detected objects", "api_name": "classify_material", "api_params": {{"object": "task2_result"}}, "depends_on": ["task2"]}},
+                {{"id": "task4", "description": "Get pose information of detected objects", "api_name": "get_object_pose", "api_params": {{"object": "task2_result"}}, "depends_on": ["task2"]}}
             ]
         }}
     """
@@ -152,7 +152,7 @@ if st.button("Back to Main Page"):
         st.error(f"Error returning to main page: {str(e)}")
 
 # Main interface
-agent_name = "视觉识别代理"
+agent_name = "Vision Recognition Agent"
 assigned_tasks = st.session_state.get('shared_tasks', {}).get(agent_name, [])
 
 # Display assigned tasks

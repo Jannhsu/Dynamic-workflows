@@ -27,42 +27,42 @@ st.title("Execute Control Agent")
 # Function to generate structured plan for visual tasks
 def generate_visual_plan(user_input):
     prompt = f"""
-        ### API 描述
+        ### API Description
 
-        1. **移动机械臂到指定位置 API**
-        - **名称**：MoveArmToPosition
-        - **参数**：
-            - `position`: 目标位置的坐标。
+        1. **Move Arm to Specified Position API**
+        - **Name**: move_arm_to_position
+        - **Parameters**:
+            - `position`: The coordinates of the target position.
 
-        2. **抓取物体 API**
-        - **名称**：GripObject
-        - **参数**：
-            - `gripper`: 使用的抓手类型（如夹爪、吸盘等）。
+        2. **Grip Object API**
+        - **Name**: grip_object
+        - **Parameters**:
+            - `gripper`: The type of gripper used (e.g., claw, suction cup).
 
-        3. **释放物体 API**
-        - **名称**：ReleaseObject
-        - **参数**：
-            - `gripper`: 控制抓取器释放物体的类型。
+        3. **Release Object API**
+        - **Name**: release_object
+        - **Parameters**:
+            - `gripper`: The type of gripper used to release the object.
 
-        4. **获取机械臂状态 API**
-        - **名称**：GetStatus
-        - **参数**：无
+        4. **Get Arm Status API**
+        - **Name**: get_status
+        - **Parameters**: None
 
-        请根据以下用户输入生成一个结构化计划，格式为纯 JSON，不要添加任何其他文本：
+        Please generate a structured plan based on the following user input, formatted as pure JSON without adding any other text:
         
-        用户输入: "{user_input}"
+        User Input: "{user_input}"
         
-        输出格式:
+        Output Format:
         {{
             "tasks": [
-                {{"id": "task1", "description": "将机械臂移动到目标位置", "api_name": "MoveArmToPosition", "api_params": {{"position": "坐标"}},"depends_on": []}},
-                {{"id": "task2", "description": "使用夹爪抓取物体", "api_name": "GripObject", "api_params": {{"gripper": "夹爪"}}, "depends_on": ["task1"]}},
-                {{"id": "task3", "description": "释放抓取的物体", "api_name": "ReleaseObject", "api_params": {{"gripper": "夹爪"}}, "depends_on": ["task2"]}},
-                {{"id": "task4", "description": "获取机械臂当前状态", "api_name": "GetStatus", "api_params": {{}}, "depends_on": ["task3"]}}
+                {{"id": "task1", "description": "Move the arm to the target position", "api_name": "move_arm_to_position", "api_params": {{"position": "coordinates"}}, "depends_on": []}},
+                {{"id": "task2", "description": "Use the claw to grip the object", "api_name": "grip_object", "api_params": {{"gripper": "claw"}}, "depends_on": ["task1"]}},
+                {{"id": "task3", "description": "Release the gripped object", "api_name": "release_object", "api_params": {{"gripper": "claw"}}, "depends_on": ["task2"]}},
+                {{"id": "task4", "description": "Get the current status of the arm", "api_name": "get_status", "api_params": {{}}, "depends_on": ["task3"]}}
             ]
         }}
         
-        请确保在每个子任务中包含要调用的API名称和相应的参数，以便于后续调用。
+        Please ensure that each sub-task includes the name of the API to be called and the corresponding parameters for subsequent calls.
     """
     
     messages = [
@@ -117,7 +117,7 @@ if st.button("Back to Main Page"):
         st.error(f"Error returning to main page: {str(e)}")
 
 # Main interface
-agent_name = "执行控制代理"
+agent_name = "Execution Control Agent"
 assigned_tasks = st.session_state.get('shared_tasks', {}).get(agent_name, [])
 
 # Display assigned tasks

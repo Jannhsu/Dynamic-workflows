@@ -27,40 +27,40 @@ st.title("Feedback and Adjustment Agent")
 # Function to generate structured plan for visual tasks
 def generate_visual_plan(user_input):
     prompt = f"""
-        ### API 描述
+        ### API Description
 
-        1. **监控执行状态 API**
-        - **名称**：监控执行状态
-        - **参数**：
-            - `execution_id`: 当前执行任务的ID。
-            - `timeout`: 监控超时时间（秒）。
+        1. **Monitor Execution Status API**
+        - **Name**: monitor_execution_status
+        - **Parameters**:
+            - `execution_id`: The ID of the current executing task.
+            - `timeout`: Monitoring timeout duration (in seconds).
 
-        2. **调整路径 API**
-        - **名称**：调整路径
-        - **参数**：
-            - `trajectory`: 当前运动轨迹的详细信息。
-            - `adjustment_factor`: 调整路径的因子（如偏移量或角度）。
+        2. **Adjust Path API**
+        - **Name**: adjust_path
+        - **Parameters**:
+            - `trajectory`: Detailed information about the current motion trajectory.
+            - `adjustment_factor`: The factor for adjusting the path (e.g., offset or angle).
 
-        3. **记录数据 API**
-        - **名称**：记录数据
-        - **参数**：
-            - `log_entry`: 要记录的日志条目内容。
-            - `timestamp`: 日志记录的时间戳。
+        3. **Log Data API**
+        - **Name**: log_data
+        - **Parameters**:
+            - `log_entry`: The content of the log entry to be recorded.
+            - `timestamp`: The timestamp for the log entry.
 
-        请根据以下用户输入生成一个结构化计划，格式为纯 JSON，不要添加任何其他文本：
+        Please generate a structured plan based on the following user input, formatted as pure JSON without adding any other text:
         
-        用户输入: "{user_input}"
+        User Input: "{user_input}"
         
-        输出格式:
+        Output Format:
         {{
             "tasks": [
-                {{"id": "task1", "description": "实时监控机械臂执行状态", "api_name": "监控执行状态", "api_params": {{"execution_id": "current_task_id", "timeout": 30}}, "depends_on": []}},
-                {{"id": "task2", "description": "根据反馈调整运动路径", "api_name": "调整路径", "api_params": {{"trajectory": "current_trajectory", "adjustment_factor": 0.1}}, "depends_on": ["task1"]}},
-                {{"id": "task3", "description": "记录执行过程中的数据", "api_name": "记录数据", "api_params": {{"log_entry": "执行状态正常", "timestamp": "current_time"}}, "depends_on": ["task1"]}}
+                {{"id": "task1", "description": "Real-time monitoring of the robotic arm's execution status", "api_name": "monitor_execution_status", "api_params": {{"execution_id": "current_task_id", "timeout": 30}}, "depends_on": []}},
+                {{"id": "task2", "description": "Adjust motion path based on feedback", "api_name": "adjust_path", "api_params": {{"trajectory": "current_trajectory", "adjustment_factor": 0.1}}, "depends_on": ["task1"]}},
+                {{"id": "task3", "description": "Log data during the execution process", "api_name": "log_data", "api_params": {{"log_entry": "Execution status normal", "timestamp": "current_time"}}, "depends_on": ["task1"]}}
             ]
         }}
         
-        请确保在每个子任务中包含要调用的API名称和相应的参数，以便于后续调用。
+        Please ensure that each sub-task includes the API name to be called and the corresponding parameters for subsequent calls.
     """
     
     messages = [
@@ -115,7 +115,7 @@ if st.button("Back to Main Page"):
         st.error(f"Error returning to main page: {str(e)}")
 
 # Main interface
-agent_name = "反馈调整代理"
+agent_name = "Feedback and Adjustment Agent"
 assigned_tasks = st.session_state.get('shared_tasks', {}).get(agent_name, [])
 
 # Display assigned tasks

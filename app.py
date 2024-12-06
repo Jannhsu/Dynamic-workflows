@@ -10,6 +10,105 @@ from streamlit_echarts import st_pyecharts
 # Set the page to wide mode
 st.set_page_config(layout="wide")
 
+# Initialize position state variables if they don't exist
+if 'cup_position' not in st.session_state:
+    st.session_state.cup_position = {'x': -1, 'y': 1, 'z': 0}
+if 'shelf_position' not in st.session_state:
+    st.session_state.shelf_position = {'x': 1, 'y': 0.3, 'z': 0}
+
+# Create two columns for the top section
+col1, col2 = st.columns([1, 2])
+
+with col1:
+    st.subheader("Object Positions")
+    # Cup position inputs
+    st.write("Cup Position")
+    st.session_state.cup_position['x'] = st.number_input("Cup X", value=st.session_state.cup_position['x'])
+    st.session_state.cup_position['y'] = st.number_input("Cup Y", value=st.session_state.cup_position['y'])
+    st.session_state.cup_position['z'] = st.number_input("Cup Z", value=st.session_state.cup_position['z'])
+    
+    # Shelf position inputs
+    st.write("Shelf Position")
+    st.session_state.shelf_position['x'] = st.number_input("Shelf X", value=st.session_state.shelf_position['x'])
+    st.session_state.shelf_position['y'] = st.number_input("Shelf Y", value=st.session_state.shelf_position['y'])
+    st.session_state.shelf_position['z'] = st.number_input("Shelf Z", value=st.session_state.shelf_position['z'])
+
+# Modified HTML code with position parameters
+html_code = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Scene</title>
+    <style>
+        body {{ margin: 0; }}
+        canvas {{ display: block; }}
+    </style>
+</head>
+<body>
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.128.0/build/three.module.js';
+        import {{ OrbitControls }} from 'https://cdn.skypack.dev/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+
+        let scene, camera, renderer;
+
+        function init() {{
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 10;
+
+            renderer = new THREE.WebGLRenderer({{ antialias: true }});
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            const geometryTable = new THREE.BoxGeometry(4, 0.2, 4);
+            const materialTable = new THREE.MeshBasicMaterial({{ color: 0x8B4513 }});
+            const table = new THREE.Mesh(geometryTable, materialTable);
+            scene.add(table);
+
+            const geometryCup = new THREE.CylinderGeometry(0.5, 0.5, 1, 32);
+            const materialCup = new THREE.MeshBasicMaterial({{ color: 0xFFD700 }});
+            const cup = new THREE.Mesh(geometryCup, materialCup);
+            cup.position.set({st.session_state.cup_position['x']}, 
+                           {st.session_state.cup_position['y']}, 
+                           {st.session_state.cup_position['z']});
+            scene.add(cup);
+
+            const geometryShelf = new THREE.BoxGeometry(2, 0.1, 1);
+            const materialShelf = new THREE.MeshBasicMaterial({{ color: 0xA0522D }});
+            const shelf = new THREE.Mesh(geometryShelf, materialShelf);
+            shelf.position.set({st.session_state.shelf_position['x']}, 
+                             {st.session_state.shelf_position['y']}, 
+                             {st.session_state.shelf_position['z']});
+            scene.add(shelf);
+
+            const controls = new OrbitControls(camera, renderer.domElement);
+            window.addEventListener('resize', onWindowResize, false);
+            animate();
+        }}
+
+        function onWindowResize() {{
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }}
+
+        function animate() {{
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }}
+
+        init();
+    </script>
+</body>
+</html>
+"""
+
+with col2:
+    # Add 3D visualization
+    st.components.v1.html(html_code, height=600)
+
 # Set your API key
 YOUR_API_KEY = "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"
 os.environ["PPLX_API_KEY"] = YOUR_API_KEY
@@ -31,72 +130,21 @@ if 'shared_tasks' not in st.session_state:
 # Function to generate structured plan
 def generate_plan(user_input):
     prompt = f"""
-        ### 代理能力描述
-
-        1. **视觉识别代理**
-        - **角色**：负责识别和分类物体，确定其位置、形状和材质。
-        - **能力**：
-            - 获取当前摄像头图像。
-            - 检测并识别图像中的物体，返回物体类别和位置信息。
-            - 根据物体特征分类其材质（如金属、塑料、玻璃等）。
-            - 获取物体在三维空间中的姿态信息。
-        - **任务范围**：
-            - 在执行任务前确认目标物体是否存在，并返回相关信息。
-
-        2. **运动规划代理**
-        - **角色**：根据视觉识别结果生成机械臂的运动路径。
-        - **能力**：
-            - 规划从起始位置到目标位置的运动路径。
-            - 在路径规划中考虑障碍物，返回避障后的路径。
-            - 获取规划好的运动轨迹信息。
-            - 执行指定的运动轨迹。
-        - **任务范围**：
-            - 接收来自视觉识别代理的物体位置信息，生成运动计划。
-
-        3. **抓取策略代理**
-        - **角色**：根据物体类型和抓取方式选择合适的抓取策略。
-        - **能力**：
-            - 根据物体类型选择合适的抓取器（如机械夹爪、真空吸附器等）。
-            - 计算所需的抓取力以安全抓取物体。
-            - 执行抓取动作，���指定物体抓取到机械臂上。
-        - **任务范围**：
-            - 根据视觉识别代理提供的信息选择合适的抓取策略。
-
-        4. **执行控制代理**
-        - **角色**：控制机械臂的实际执行过程，包括抓取和移动。
-        - **能力**：
-            - 将机械臂移动到指定位置。
-            - 控制抓取器执行抓取动作。
-            - 控制抓取器释放物体。
-            - 获取机械臂当前状态（如是否在运动、是否成功抓取等）。
-        - **任务范围**：
-            - 接收来自运动规划代理和抓取策略代理的指令，执行具体动作。
-
-        5. **反馈与调整代理**
-        - **角色**：监控执行过程中的实时反馈，并根据需要进行调整。
-        - **能力**：
-            - 实时监控机械臂执行状态，检查是否发生错误或偏差。
-            - 根据反馈调整运动路径以优化执行效果。
-            - 记录执行过程中的数据以便后续分析和优化。
-        - **任务范围**：
-            - 在执行过程中监控状态，并根据需要进行调整。
-
-        请根据以下用户输入生成一个结构化计划，格式为纯 JSON，不要添加任何其他文本：
         
-        用户输入: "{user_input}"
+        User Input: "{user_input}"
         
-        输出格��:
+        Output Format:
         {{
             "tasks": [
-                {{"id": "task1", "description": "获取目标物体图像并进行识别", "assigned_agent": "视觉识别代理", "depends_on": []}},
-                {{"id": "task2", "description": "生成运动路径以移动到目标位置", "assigned_agent": "运动规划代理", "depends_on": ["task1"]}},
-                {{"id": "task3", "description": "选择合适的抓取策略并计算抓取力", "assigned_agent": "抓取策略代理", "depends_on": ["task1"]}},
-                {{"id": "task4", "description": "控制机械臂移动并执行抓取动作", "assigned_agent": "执行控制代理", "depends_on": ["task2", "task3"]}},
-                {{"id": "task5", "description": "监控执行过程并进行必要调整", "assigned_agent": "反馈与调整代理", "depends_on": ["task4"]}}
+                {{"id": "task1", "description": "Capture images of the target object and perform recognition", "assigned_agent": "Vision Recognition Agent", "depends_on": []}},
+                {{"id": "task2", "description": "Generate a motion path to move to the target position", "assigned_agent": "Motion Planning Agent", "depends_on": ["task1"]}},
+                {{"id": "task3", "description": "Select an appropriate grasping strategy and calculate grasping force", "assigned_agent": "Grasping Strategy Agent", "depends_on": ["task1"]}},
+                {{"id": "task4", "description": "Control the robotic arm to move and execute grasping actions", "assigned_agent": "Execution Control Agent", "depends_on": ["task2", "task3"]}},
+                {{"id": "task5", "description": "Monitor execution process and make necessary adjustments", "assigned_agent": "Feedback and Adjustment Agent", "depends_on": ["task4"]}}
             ]
         }}
         
-        请确保在每个子任务中包含合适的代理名称，以便于后续路由到指定的代理。
+        Please ensure that each sub-task includes an appropriate agent name for routing to the designated agent later.
     """
     
     messages = [
@@ -199,15 +247,15 @@ def navigate_to_agent(agent_name):
     try:
         # 使用相对于主应用的路径
         base_path = "pages"
-        if agent_name == "视觉识别代理":
+        if agent_name == "Vision Recognition Agent":
             st.switch_page(f"{base_path}/eye_agent.py")
-        elif agent_name == "运动规划代理":
+        elif agent_name == "Motion Planning Agent":
             st.switch_page(f"{base_path}/move_agent.py")  
-        elif agent_name == "抓取策略代理":
+        elif agent_name == "Grasping Strategy Agent":
             st.switch_page(f"{base_path}/hand_agent.py")
-        elif agent_name == "执行控制代理":
+        elif agent_name == "Execution Control Agent":
             st.switch_page(f"{base_path}/excute_agent.py")
-        elif agent_name == "反馈与调整代理":
+        elif agent_name == "Feedback and Adjustment Agent":
             st.switch_page(f"{base_path}/adjust_agent.py")
         else:
             st.write("No detailed information available for this agent.")

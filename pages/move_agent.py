@@ -27,43 +27,43 @@ st.title("Motion Planning Agent")
 # Function to generate structured plan for visual tasks
 def generate_visual_plan(user_input):
     prompt = f"""
-        ### API 描述
+        ### API Description
 
-        1. **规划路径 API**
-        - **名称**：PlanPath
-        - **参数**：
-            - `start_position`: 机械臂的起始位置坐标。
-            - `target_position`: 目标位置的坐标。
+        1. **Plan Path API**
+        - **Name**: plan_path
+        - **Parameters**:
+            - `start_position`: The starting position coordinates of the robotic arm.
+            - `target_position`: The coordinates of the target position.
 
-        2. **避障路径 API**
-        - **名称**：AvoidObstacles
-        - **参数**：
-            - `path`: 初步规划的运动路径。
+        2. **Avoid Obstacles API**
+        - **Name**: avoid_obstacles
+        - **Parameters**:
+            - `path`: The initially planned motion path.
 
-        3. **获取轨迹 API**
-        - **名称**：GetTrajectory
-        - **参数**：无
+        3. **Get Trajectory API**
+        - **Name**: get_trajectory
+        - **Parameters**: None
 
-        4. **执行运动 API**
-        - **名称**：ExecuteMovement
-        - **参数**：
-            - `trajectory`: 规划好的运动轨迹信息。
+        4. **Execute Movement API**
+        - **Name**: execute_movement
+        - **Parameters**:
+            - `trajectory`: The information of the planned motion trajectory.
 
-        请根据以下用户输入生成一个结构化计划，格式为纯 JSON，不要添加任何其他文本：
+        Please generate a structured plan based on the following user input, formatted as pure JSON without adding any other text:
         
-        用户输入: "{user_input}"
+        User Input: "{user_input}"
         
-        输出格式:
+        Output Format:
         {{
             "tasks": [
-                {{"id": "task1", "description": "规划从起始位置到目标位置的运动路径", "api_name": "PlanPath", "api_params": {{"start_position": "起始坐标", "target_position": "目标坐标"}}, "depends_on": []}},
-                {{"id": "task2", "description": "在路径规划中考虑障碍物并返回避障后的路径", "api_name": "AvoidObstacles", "api_params": {{"path": "初步路径"}}, "depends_on": ["task1"]}},
-                {{"id": "task3", "description": "获取规划好的运动轨迹信息", "api_name": "GetTrajectory", "api_params": {{}}, "depends_on": ["task2"]}},
-                {{"id": "task4", "description": "执行指定的运动轨迹", "api_name": "ExecuteMovement", "api_params": {{"trajectory": "轨迹信息"}}, "depends_on": ["task3"]}}
+                {{"id": "task1", "description": "Plan the motion path from the starting position to the target position", "api_name": "plan_path", "api_params": {{"start_position": "starting_coordinates", "target_position": "target_coordinates"}}, "depends_on": []}},
+                {{"id": "task2", "description": "Consider obstacles in the path planning and return the obstacle-free path", "api_name": "avoid_obstacles", "api_params": {{"path": "initial_path"}}, "depends_on": ["task1"]}},
+                {{"id": "task3", "description": "Get the information of the planned motion trajectory", "api_name": "get_trajectory", "api_params": {{}}, "depends_on": ["task2"]}},
+                {{"id": "task4", "description": "Execute the specified motion trajectory", "api_name": "execute_movement", "api_params": {{"trajectory": "trajectory_info"}}, "depends_on": ["task3"]}}
             ]
         }}
         
-        请确保在每个子任务中包含要调用的API名称和相应的参数，以便于后续调用。
+        Please ensure that each sub-task includes the name of the API to be called and the corresponding parameters for subsequent calls.
     """
     
     messages = [
@@ -153,7 +153,7 @@ if st.button("Back to Main Page"):
         st.error(f"Error returning to main page: {str(e)}")
 
 # Main interface
-agent_name = "运动规划代理"
+agent_name = "Motion Planning Agent"
 assigned_tasks = st.session_state.get('shared_tasks', {}).get(agent_name, [])
 
 # Display assigned tasks

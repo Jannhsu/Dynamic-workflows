@@ -27,38 +27,38 @@ st.title("Hand manipulation Agent")
 # Function to generate structured plan for visual tasks
 def generate_visual_plan(user_input):
     prompt = f"""
-        ### API 描述
+        ### API Description
 
-        1. **选择抓手 API**
-        - **名称**：选择抓手
-        - **参数**：
-            - `object`: 要抓取的物体信息，包括其类型、形状和材质。
+        1. **Select Gripper API**
+        - **Name**: select_gripper
+        - **Parameters**:
+            - `object`: Information about the object to be grasped, including its type, shape, and material.
 
-        2. **计算抓取力 API**
-        - **名称**：计算抓取力
-        - **参数**：
-            - `object`: 要抓取的物体信息，包括其重量和材质特征。
+        2. **Calculate Grasping Force API**
+        - **Name**: calculate_grasping_force
+        - **Parameters**:
+            - `object`: Information about the object to be grasped, including its weight and material characteristics.
 
-        3. **执行抓取动作 API**
-        - **名称**：执行抓取动作
-        - **参数**：
-            - `gripper`: 使用的抓手类型。
-            - `object`: 要抓取的物体信息。
+        3. **Execute Grasping Action API**
+        - **Name**: execute_grasp_action
+        - **Parameters**:
+            - `gripper`: The type of gripper to be used.
+            - `object`: Information about the object to be grasped.
 
-        请根据以下用户输入生成一个结构化计划，格式为纯 JSON，不要添加任何其他文本：
+        Please generate a structured plan based on the following user input, formatted as pure JSON without adding any other text:
         
-        用户输入: "{user_input}"
+        User Input: "{user_input}"
         
-        输出格式:
+        Output Format:
         {{
             "tasks": [
-                {{"id": "task1", "description": "选择合适的抓手以抓取物体", "api_name": "选择抓手", "api_params": {{"object": "物体信息"}}, "depends_on": []}},
-                {{"id": "task2", "description": "计算所需的抓取力以安全抓取物体", "api_name": "计算抓取力", "api_params": {{"object": "物体信息"}}, "depends_on": ["task1"]}},
-                {{"id": "task3", "description": "执行抓取动作，将物体抓取到机械臂上", "api_name": "执行抓取动作", "api_params": {{"gripper": "选择的抓手类型", "object": "物体信息"}}, "depends_on": ["task2"]}}
+                {{"id": "task1", "description": "Select an appropriate gripper to grasp the object", "api_name": "select_gripper", "api_params": {{"object": "object_information"}}, "depends_on": []}},
+                {{"id": "task2", "description": "Calculate the required grasping force to safely grasp the object", "api_name": "calculate_grasping_force", "api_params": {{"object": "object_information"}}, "depends_on": ["task1"]}},
+                {{"id": "task3", "description": "Execute the grasping action to pick up the object with the robotic arm", "api_name": "execute_grasp_action", "api_params": {{"gripper": "selected_gripper_type", "object": "object_information"}}, "depends_on": ["task2"]}}
             ]
         }}
         
-        请确保在每个子任务中包含要调用的API名称和相应的参数，以便于后续调用。
+        Please ensure that each sub-task includes the API name to be called and the corresponding parameters for subsequent invocation.
     """
     
     messages = [
@@ -148,7 +148,7 @@ if st.button("Back to Main Page"):
         st.error(f"Error returning to main page: {str(e)}")
 
 # Main interface
-agent_name = "手部操作代理"
+agent_name = "Grasping Strategy Agent"
 assigned_tasks = st.session_state.get('shared_tasks', {}).get(agent_name, [])
 
 # Display assigned tasks
