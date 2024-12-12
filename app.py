@@ -12,9 +12,9 @@ st.set_page_config(layout="wide")
 
 # Initialize position state variables if they don't exist
 if 'cup_position' not in st.session_state:
-    st.session_state.cup_position = {'x': -1, 'y': 1, 'z': 0}
+    st.session_state.cup_position = {'x': -1, 'y': 0.7, 'z': 0}
 if 'shelf_position' not in st.session_state:
-    st.session_state.shelf_position = {'x': 1, 'y': 0.3, 'z': 0}
+    st.session_state.shelf_position = {'x': 1, 'y': 0.6, 'z': 0}
 
 # Create two columns for the top section
 col1, col2 = st.columns([1, 2])
@@ -56,13 +56,16 @@ html_code = f"""
         function init() {{
             scene = new THREE.Scene();
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 10;
+            
+            // 修改相机位置到右斜上方
+            camera.position.set(2.5, 3.5, 6);
+            camera.lookAt(0, 0, 0);
 
             renderer = new THREE.WebGLRenderer({{ antialias: true }});
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            const geometryTable = new THREE.BoxGeometry(4, 0.2, 4);
+            const geometryTable = new THREE.BoxGeometry(5.0, 0.4, 5.0);
             const materialTable = new THREE.MeshBasicMaterial({{ color: 0x8B4513 }});
             const table = new THREE.Mesh(geometryTable, materialTable);
             scene.add(table);
@@ -75,7 +78,7 @@ html_code = f"""
                            {st.session_state.cup_position['z']});
             scene.add(cup);
 
-            const geometryShelf = new THREE.BoxGeometry(2, 0.1, 1);
+            const geometryShelf = new THREE.BoxGeometry(2, 0.2, 3);
             const materialShelf = new THREE.MeshBasicMaterial({{ color: 0xA0522D }});
             const shelf = new THREE.Mesh(geometryShelf, materialShelf);
             shelf.position.set({st.session_state.shelf_position['x']}, 
@@ -130,6 +133,57 @@ if 'shared_tasks' not in st.session_state:
 # Function to generate structured plan
 def generate_plan(user_input):
     prompt = f"""
+        ### Agent Capability Description
+
+        1. **Vision Recognition Agent**
+        - **Role**: Responsible for identifying and classifying objects, determining their position, shape, and material.
+        - **Capabilities**:
+            - Capture images from the current camera.
+            - Detect and recognize objects in the image, returning object categories and location information.
+            - Classify materials based on object characteristics (e.g., metal, plastic, glass).
+            - Obtain the pose information of objects in three-dimensional space.
+        - **Task Scope**:
+            - Confirm the existence of the target object before executing tasks and return relevant information.
+
+        2. **Motion Planning Agent**
+        - **Role**: Generate the motion path for the robotic arm based on vision recognition results.
+        - **Capabilities**:
+            - Plan a motion path from the starting position to the target position.
+            - Consider obstacles during path planning, returning a path that avoids them.
+            - Obtain information about the planned motion trajectory.
+            - Execute the specified motion trajectory.
+        - **Task Scope**:
+            - Receive object position information from the vision recognition agent to generate a motion plan.
+
+        3. **Grasping Strategy Agent**
+        - **Role**: Choose an appropriate grasping strategy based on object type and grasping method.
+        - **Capabilities**:
+            - Select an appropriate gripper based on object type (e.g., mechanical claw, vacuum suction).
+            - Calculate the required grasping force to safely grasp objects.
+            - Execute grasping actions to pick up specified objects with the robotic arm.
+        - **Task Scope**:
+            - Select an appropriate grasping strategy based on information provided by the vision recognition agent.
+
+        4. **Execution Control Agent**
+        - **Role**: Control the actual execution process of the robotic arm, including grasping and moving.
+        - **Capabilities**:
+            - Move the robotic arm to a specified position.
+            - Control the gripper to execute grasping actions.
+            - Control the gripper to release objects.
+            - Obtain the current status of the robotic arm (e.g., whether it is in motion, whether it successfully grasped an object).
+        - **Task Scope**:
+            - Receive instructions from both the motion planning agent and the grasping strategy agent to execute specific actions.
+
+        5. **Feedback and Adjustment Agent**
+        - **Role**: Monitor real-time feedback during execution and make adjustments as needed.
+        - **Capabilities**:
+            - Monitor the execution status of the robotic arm in real-time, checking for errors or deviations.
+            - Adjust motion paths based on feedback to optimize execution effectiveness.
+            - Record data during execution for subsequent analysis and optimization.
+        - **Task Scope**:
+            - Monitor status during execution and make adjustments as necessary.
+
+        Please generate a structured plan based on the following user input, formatted as pure JSON without adding any other text:
         
         User Input: "{user_input}"
         
@@ -287,7 +341,7 @@ if st.button("Generate Plan"):
             
             nodes, links = build_graph(plan)
             graph = visualize_graph(nodes, links)
-            st.session_state['workflow_graph'] = graph  # Save graph
+            st.session_state['workflow_graph'] = graph  # Save graph            
             
             col1, col2 = st.columns([1, 2])
             
@@ -297,6 +351,12 @@ if st.button("Generate Plan"):
                     
             with col2:
                 st_pyecharts(graph)
+            
+            
+            # Update cup position after graph generation
+            st.session_state.cup_position = {'x': 1, 'y': 1.1, 'z': 0}
+            # Trigger page rerun to update 3D visualization
+            st.rerun()
 
 # Restore previous state if exists
 elif st.session_state['plan'] and st.session_state['workflow_graph']:
