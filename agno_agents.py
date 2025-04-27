@@ -10,9 +10,6 @@ from agno.run.response import RunResponse, RunEvent
 # 推荐用 st.secrets 读取
 api_key = st.secrets["OPENAI_API_KEY"]
 
-# 兼容性：部分库读取环境变量
-os.environ["OPENAI_API_KEY"] = api_key
-
 # 页面设置
 st.title("ArXiv 学术周报生成器")
 st.write("根据关键词自动生成最新arXiv论文周报")
