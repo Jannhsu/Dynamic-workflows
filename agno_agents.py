@@ -7,11 +7,6 @@ from agno.tools.arxiv import ArxivTools
 from agno.tools.reasoning import ReasoningTools
 from agno.run.response import RunResponse, RunEvent
 
-# 设置API密钥
-'''os.environ["OPENAI_API_KEY"] = "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"
-os.environ["OPENAI_API_KEY"] = "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"
-os.environ["OPENAI_API_BASE"] = "https://openrouter.ai/api/v1"'''
-
 # 推荐用 st.secrets 读取
 api_key = st.secrets["OPENAI_API_KEY"]
 
