@@ -8,9 +8,15 @@ from agno.tools.reasoning import ReasoningTools
 from agno.run.response import RunResponse, RunEvent
 
 # 设置API密钥
-os.environ["OPENAI_API_KEY"] = "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"
+'''os.environ["OPENAI_API_KEY"] = "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"
 os.environ["OPENAI_API_KEY"] = "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"
-os.environ["OPENAI_API_BASE"] = "https://openrouter.ai/api/v1"
+os.environ["OPENAI_API_BASE"] = "https://openrouter.ai/api/v1"'''
+
+# 推荐用 st.secrets 读取
+api_key = st.secrets["OPENAI_API_KEY"]
+
+# 兼容性：部分库读取环境变量
+os.environ["OPENAI_API_KEY"] = api_key
 
 # 页面设置
 st.title("ArXiv 学术周报生成器")
@@ -70,9 +76,9 @@ if st.button("生成学术周报", type="primary"):
         agent = Agent(
             model=OpenAIChat(
                 id="openai/gpt-4o-mini",
-                api_key="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",  # 显式传递 API Key
-                base_url="https://openrouter.ai/api/v1",  # 显式指定 base_url
-                default_headers={"Authorization": f"Bearer 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"},  # 添加 Authorization 请求头
+                api_key=api_key,
+                base_url=st.secrets.get("OPENAI_API_BASE", None),
+                default_headers={"Authorization": f"Bearer {api_key}"},
             ),
             tools=[
                 ArxivTools(search_arxiv=True, read_arxiv_papers=True),
