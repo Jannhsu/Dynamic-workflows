@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@baidumap/mcp-server-baidu-map": "^1.0.4"
+  }
+}
