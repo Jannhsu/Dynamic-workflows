@@ -1,4 +1,5 @@
 import os
+import re
 import streamlit as st
 from agno.agent import Agent
 from agno.models.perplexity import Perplexity
@@ -89,13 +90,16 @@ if st.button("生成学术周报", type="primary"):
         关键词：{keywords_str}
         """
 
-        tab1, tab2 = st.tabs(["📄 学术周报", "🔗 参考文献"])
+        tab1, tab3, tab2 = st.tabs(["📄 学术周报", "📑 论文详情", "🔗 参考文献"])
 
         with tab1:
             response_placeholder = st.empty()
 
         with tab2:
             citations_placeholder = st.empty()
+
+        with tab3:
+            details_placeholder = st.empty()
 
         response_content = ""
 
@@ -105,9 +109,8 @@ if st.button("生成学术周报", type="primary"):
 
             for i, resp in enumerate(agent.run(message=prompt, stream=True)):
                 if isinstance(resp, RunResponse):
-                    if i % 5 == 0:
-                        progress_value = min(85, 10 + (i * 2))
-                        progress.progress(progress_value)
+                    progress_value = min(85, 10 + (i * 2))
+                    progress.progress(progress_value)
 
                     if progress_value < 30:
                         status.text("正在搜索ArXiv论文...")
@@ -130,8 +133,91 @@ if st.button("生成学术周报", type="primary"):
                             citations_html += "</ol>"
                             citations_placeholder.markdown(citations_html, unsafe_allow_html=True)
 
+            # 生成完成，进度100%
             progress.progress(100)
             status.success("✅ 学术周报生成完成!")
+
+            # 提取论文标题和摘要列表（假设摘要可从引用信息或agent响应中提取）
+            table_pattern = r"\|(.+?)\|\s*\n\|(?:[-:\s|]+)\|\s*\n((?:\|.*\|\s*\n?)+)"
+            match = re.search(table_pattern, response_content, re.DOTALL)
+            paper_titles = []
+            paper_abstracts = []  # 这里假设你能从响应中提取摘要，或者后续扩展抓取
+
+            if match:
+                table_body = match.group(2)
+                for line in table_body.strip().split("\n"):
+                    cols = [col.strip() for col in line.strip().strip("|").split("|")]
+                    if cols:
+                        paper_titles.append(cols[0])
+                        # 简单示例：假设摘要在第4列
+                        if len(cols) > 4:
+                            paper_abstracts.append(cols[3])
+                        else:
+                            paper_abstracts.append("")
+
+            # 论文详情展开区，支持点击展开时调用新的Agent进行详细解读
+            with tab3:
+                if paper_titles:
+                    for idx, title in enumerate(paper_titles):
+                        # 使用st.expander实现下拉tog
+                        expanded_key = f"expander_{idx}"
+                        if expanded_key not in st.session_state:
+                            st.session_state[expanded_key] = False
+
+                        # 论文摘要（如果没有摘要，可以传空字符串）
+                        abstract = paper_abstracts[idx] if idx < len(paper_abstracts) else ""
+
+                        # 创建expander，expanded状态绑定session_state
+                        with st.expander(f"{idx+1}. {title}", expanded=st.session_state[expanded_key]):
+                            # 点击展开时调用agent解读
+                            # 这里用一个按钮触发解读，避免每次展开都调用，或者直接展开时自动调用（需用st.session_state控制）
+                            if f"detail_loaded_{idx}" not in st.session_state:
+                                st.session_state[f"detail_loaded_{idx}"] = False
+                                st.session_state[f"detail_content_{idx}"] = ""
+
+                            def load_detail(idx=idx, title=title, abstract=abstract):
+                                # 新Agent实例，用于论文详细解读
+                                detail_agent = Agent(
+                                    model=Perplexity(id="sonar-pro"),
+                                    tools=[
+                                        ArxivTools(search_arxiv=False, read_arxiv_papers=False),
+                                        ReasoningTools(add_instructions=True)
+                                    ],
+                                    instructions=[
+                                        "你是一位专业科研助理，基于论文标题和摘要，提供详细技术解读。"
+                                    ],
+                                    markdown=True,
+                                    show_tool_calls=False
+                                )
+                                prompt_detail = f"""
+                                你是一位专业的科研助理，擅长深入解读学术论文。请根据以下论文标题和摘要，提供详细的技术解读，包括研究背景、方法、创新点、实验结果及其意义。请用中文撰写，面向领域内专家，内容准确且深入。
+
+                                论文标题：{title}
+
+                                论文摘要：{abstract}
+
+                                请给出详细解读：
+                                """
+                                detail_response = ""
+                                for resp in detail_agent.run(message=prompt_detail, stream=True):
+                                    if isinstance(resp, RunResponse) and resp.event == RunEvent.run_response and isinstance(resp.content, str):
+                                        detail_response += resp.content
+                                        # 实时更新显示
+                                        st.session_state[f"detail_content_{idx}"] = detail_response
+                                        # 强制刷新expander内容
+                                        st.experimental_rerun()
+
+                            # 展示已有解读或加载按钮
+                            if not st.session_state[f"detail_loaded_{idx}"]:
+                                if st.button("点击加载详细解读", key=f"load_detail_btn_{idx}"):
+                                    st.session_state[f"detail_loaded_{idx}"] = True
+                                    load_detail()
+                            else:
+                                # 显示解读内容
+                                st.markdown(st.session_state[f"detail_content_{idx}"] or "正在加载详细解读...")
+
+                else:
+                    st.write("未检测到论文标题表格，无法展示论文详情。")
 
         except Exception as e:
             progress.progress(100)
