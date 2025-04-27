@@ -7,8 +7,10 @@ from agno.tools.arxiv import ArxivTools
 from agno.tools.reasoning import ReasoningTools
 from agno.run.response import RunResponse, RunEvent
 
-# 推荐用 st.secrets 读取
-api_key = st.secrets["OPENAI_API_KEY"]
+
+# 直接硬编码你的密钥和base_url
+OPENAI_API_KEY = "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"
+OPENAI_API_BASE = "https://openrouter.ai/api/v1"
 
 # 页面设置
 st.title("ArXiv 学术周报生成器")
@@ -68,9 +70,9 @@ if st.button("生成学术周报", type="primary"):
         agent = Agent(
             model=OpenAIChat(
                 id="openai/gpt-4o-mini",
-                api_key=api_key,
-                base_url=st.secrets.get("OPENAI_API_BASE", None),
-                default_headers={"Authorization": f"Bearer {api_key}"},
+                api_key=OPENAI_API_KEY,          # 直接传入硬编码的key
+                base_url=OPENAI_API_BASE,        # 直接传入硬编码的base_url
+                default_headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},  # 明确传递认证头
             ),
             tools=[
                 ArxivTools(search_arxiv=True, read_arxiv_papers=True),
