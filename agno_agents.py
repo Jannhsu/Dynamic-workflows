@@ -2,15 +2,12 @@ import os
 import streamlit as st
 from agno.agent import Agent
 from agno.models.perplexity import Perplexity
-from agno.models.openai import OpenAIChat
 from agno.tools.arxiv import ArxivTools
 from agno.tools.reasoning import ReasoningTools
 from agno.run.response import RunResponse, RunEvent
 
-
-# 直接硬编码你的密钥和base_url
-OPENAI_API_KEY = "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"
-OPENAI_API_BASE = "https://openrouter.ai/api/v1"
+# 优先从 st.secrets 读取，兼容本地和云端
+api_key = st.secrets.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
 # 页面设置
 st.title("ArXiv 学术周报生成器")
@@ -68,12 +65,7 @@ if st.button("生成学术周报", type="primary"):
         
         # 创建Agno代理
         agent = Agent(
-            model=OpenAIChat(
-                id="openai/gpt-4o-mini",
-                api_key=OPENAI_API_KEY,          # 直接传入硬编码的key
-                base_url=OPENAI_API_BASE,        # 直接传入硬编码的base_url
-                default_headers={"Authorization": f"Bearer {OPENAI_API_KEY}"},  # 明确传递认证头
-            ),
+            model=Perplexity(id="sonar-pro"),
             tools=[
                 ArxivTools(search_arxiv=True, read_arxiv_papers=True),
                 ReasoningTools(add_instructions=True)
@@ -92,7 +84,7 @@ if st.button("生成学术周报", type="primary"):
         keywords_str = ", ".join(st.session_state.keywords)
         prompt = f"""
         请根据如下关键词，生成一份近一周arXiv论文学术周报，内容包括：
-        1. 论文标题（插入超链接）、作者、发表时间、摘要要点
+        1. 论文标题、作者、发表时间、摘要要点和链接(用表格展示)
         2. 研究趋势简要分析
         3. 学术热点点评
         
