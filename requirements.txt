@@ -3,3 +3,5 @@ agno
 arxiv
 pypdf
 openai
+pyecharts
+streamlit-echarts
