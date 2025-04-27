@@ -8,11 +8,11 @@ from agno.tools.reasoning import ReasoningTools
 from agno.run.response import RunResponse, RunEvent
 
 # 设置API密钥
-#api_key = os.environ.get("OPENAI_API_KEY", "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")  # 替换为实际密钥
-#os.environ["OPENAI_API_KEY"] = api_key
+api_key = os.environ.get("OPENAI_API_KEY", "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")  # 替换为实际密钥
+os.environ["OPENAI_API_KEY"] = api_key
 
 # 优先从 st.secrets 读取，兼容本地和云端
-api_key = st.secrets.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
+#api_key = st.secrets.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
 # 页面设置
 st.title("ArXiv 学术周报生成器")
