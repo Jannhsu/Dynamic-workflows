@@ -14,7 +14,6 @@ os.environ["OPENAI_API_KEY"] = api_key
 # 优先从 st.secrets 读取，兼容本地和云端
 #api_key = st.secrets.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
-# 页面设置
 st.title("ArXiv 学术周报生成器")
 st.write("根据关键词自动生成最新arXiv论文周报")
 
@@ -22,31 +21,34 @@ st.write("根据关键词自动生成最新arXiv论文周报")
 if "keywords" not in st.session_state:
     st.session_state.keywords = ["通信", "AI", "6G", "LLM", "Agent"]
 
-# 关键词管理部分
-st.subheader("管理关键词")
+# 初始化内容状态
+if "response_content" not in st.session_state:
+    st.session_state.response_content = ""
+if "citations_html" not in st.session_state:
+    st.session_state.citations_html = ""
+if "paper_titles" not in st.session_state:
+    st.session_state.paper_titles = []
+if "paper_abstracts" not in st.session_state:
+    st.session_state.paper_abstracts = []
 
+st.subheader("管理关键词")
 try:
     from streamlit_tags import st_tags
-
-    # 使用st_tags提供更好的标签UI体验，关键修改是添加了 key 参数
     st.session_state.keywords = st_tags(
         label='输入关键词:',
         text='输入后按回车添加',
         value=st.session_state.keywords,
         suggestions=['量子计算', '神经网络', '强化学习'],
         maxtags=10,
-        key="keywords_input"  # 关键：为组件指定唯一key，确保状态同步
+        key="keywords_input"
     )
-
 except ImportError:
-    # 如未安装streamlit-tags，使用基础UI
     keyword_cols = st.columns(5)
     for i, kw in enumerate(st.session_state.keywords):
         with keyword_cols[i % 5]:
             if st.button(f"❌ {kw}", key=f"del_{i}"):
                 st.session_state.keywords.remove(kw)
                 st.experimental_rerun()
-
     col1, col2 = st.columns([3, 1])
     with col1:
         new_keyword = st.text_input("添加新关键词")
@@ -54,6 +56,14 @@ except ImportError:
         if st.button("添加") and new_keyword:
             st.session_state.keywords.append(new_keyword)
             st.experimental_rerun()
+
+tab1, tab3, tab2 = st.tabs(["📄 学术周报", "📑 论文详情", "🔗 参考文献"])
+
+# 用于流式展示的容器（全局声明，避免重复渲染）
+with tab1:
+    response_placeholder = st.empty()
+with tab2:
+    citations_placeholder = st.empty()
 
 # 生成周报按钮
 if st.button("生成学术周报", type="primary"):
@@ -90,16 +100,11 @@ if st.button("生成学术周报", type="primary"):
         关键词：{keywords_str}
         """
 
-        tab1, tab3, tab2 = st.tabs(["📄 学术周报", "📑 论文详情", "🔗 参考文献"])
-
-        with tab1:
-            response_placeholder = st.empty()
-
-        with tab2:
-            citations_placeholder = st.empty()
-
-        with tab3:
-            details_placeholder = st.empty()
+        # 清空旧内容
+        st.session_state.response_content = ""
+        st.session_state.citations_html = ""
+        st.session_state.paper_titles = []
+        st.session_state.paper_abstracts = []
 
         response_content = ""
 
@@ -121,104 +126,105 @@ if st.button("生成学术周报", type="primary"):
 
                     if resp.event == RunEvent.run_response and isinstance(resp.content, str):
                         response_content += resp.content
-                        with tab1:
-                            response_placeholder.markdown(response_content)
+                        response_placeholder.markdown(response_content)
 
                     if resp.citations and resp.citations.urls:
-                        with tab2:
-                            citations_html = "<ol>"
-                            for citation in resp.citations.urls:
-                                if citation.url:
-                                    citations_html += f'<li><a href="{citation.url}" target="_blank">{citation.title or citation.url}</a></li>'
-                            citations_html += "</ol>"
-                            citations_placeholder.markdown(citations_html, unsafe_allow_html=True)
+                        citations_html = "<ol>"
+                        for citation in resp.citations.urls:
+                            if citation.url:
+                                citations_html += f'<li><a href="{citation.url}" target="_blank">{citation.title or citation.url}</a></li>'
+                        citations_html += "</ol>"
+                        citations_placeholder.markdown(citations_html, unsafe_allow_html=True)
 
             # 生成完成，进度100%
             progress.progress(100)
             status.success("✅ 学术周报生成完成!")
 
-            # 提取论文标题和摘要列表（假设摘要可从引用信息或agent响应中提取）
+            # 只在流式生成结束后，写入 session_state
+            st.session_state.response_content = response_content
+            st.session_state.citations_html = citations_html if 'citations_html' in locals() else ""
+
+            # 提取论文标题和摘要
             table_pattern = r"\|(.+?)\|\s*\n\|(?:[-:\s|]+)\|\s*\n((?:\|.*\|\s*\n?)+)"
             match = re.search(table_pattern, response_content, re.DOTALL)
             paper_titles = []
-            paper_abstracts = []  # 这里假设你能从响应中提取摘要，或者后续扩展抓取
-
+            paper_abstracts = []
             if match:
                 table_body = match.group(2)
                 for line in table_body.strip().split("\n"):
                     cols = [col.strip() for col in line.strip().strip("|").split("|")]
                     if cols:
                         paper_titles.append(cols[0])
-                        # 简单示例：假设摘要在第4列
                         if len(cols) > 4:
                             paper_abstracts.append(cols[3])
                         else:
                             paper_abstracts.append("")
-
-            # 论文详情展开区，支持点击展开时调用新的Agent进行详细解读
-            with tab3:
-                if paper_titles:
-                    for idx, title in enumerate(paper_titles):
-                        # 使用st.expander实现下拉tog
-                        expanded_key = f"expander_{idx}"
-                        if expanded_key not in st.session_state:
-                            st.session_state[expanded_key] = False
-
-                        # 论文摘要（如果没有摘要，可以传空字符串）
-                        abstract = paper_abstracts[idx] if idx < len(paper_abstracts) else ""
-
-                        # 创建expander，expanded状态绑定session_state
-                        with st.expander(f"{idx+1}. {title}", expanded=st.session_state[expanded_key]):
-                            # 点击展开时调用agent解读
-                            # 这里用一个按钮触发解读，避免每次展开都调用，或者直接展开时自动调用（需用st.session_state控制）
-                            if f"detail_loaded_{idx}" not in st.session_state:
-                                st.session_state[f"detail_loaded_{idx}"] = False
-                                st.session_state[f"detail_content_{idx}"] = ""
-
-                            def load_detail(idx=idx, title=title, abstract=abstract):
-                                # 新Agent实例，用于论文详细解读
-                                detail_agent = Agent(
-                                    model=Perplexity(id="sonar-pro"),
-                                    tools=[
-                                        ArxivTools(search_arxiv=False, read_arxiv_papers=False),
-                                        ReasoningTools(add_instructions=True)
-                                    ],
-                                    instructions=[
-                                        "你是一位专业科研助理，基于论文标题和摘要，提供详细技术解读。"
-                                    ],
-                                    markdown=True,
-                                    show_tool_calls=False
-                                )
-                                prompt_detail = f"""
-                                你是一位专业的科研助理，擅长深入解读学术论文。请根据以下论文标题和摘要，提供详细的技术解读，包括研究背景、方法、创新点、实验结果及其意义。请用中文撰写，面向领域内专家，内容准确且深入。
-
-                                论文标题：{title}
-
-                                论文摘要：{abstract}
-
-                                请给出详细解读：
-                                """
-                                detail_response = ""
-                                for resp in detail_agent.run(message=prompt_detail, stream=True):
-                                    if isinstance(resp, RunResponse) and resp.event == RunEvent.run_response and isinstance(resp.content, str):
-                                        detail_response += resp.content
-                                        # 实时更新显示
-                                        st.session_state[f"detail_content_{idx}"] = detail_response
-                                        # 强制刷新expander内容
-                                        st.experimental_rerun()
-
-                            # 展示已有解读或加载按钮
-                            if not st.session_state[f"detail_loaded_{idx}"]:
-                                if st.button("点击加载详细解读", key=f"load_detail_btn_{idx}"):
-                                    st.session_state[f"detail_loaded_{idx}"] = True
-                                    load_detail()
-                            else:
-                                # 显示解读内容
-                                st.markdown(st.session_state[f"detail_content_{idx}"] or "正在加载详细解读...")
-
-                else:
-                    st.write("未检测到论文标题表格，无法展示论文详情。")
+            st.session_state.paper_titles = paper_titles
+            st.session_state.paper_abstracts = paper_abstracts
 
         except Exception as e:
             progress.progress(100)
             status.error(f"生成过程中发生错误: {str(e)}")
+
+# tab1: 学术周报内容（避免重复渲染，只用 response_placeholder）
+with tab1:
+    if not st.session_state.response_content:
+        response_placeholder.markdown("请先生成学术周报。")
+    # 否则什么都不做，内容已由流式生成时的 placeholder 渲染
+
+# tab2: 参考文献
+with tab2:
+    citations_placeholder.markdown(st.session_state.citations_html or "暂无参考文献。", unsafe_allow_html=True)
+
+# tab3: 论文详情
+with tab3:
+    if st.session_state.paper_titles:
+        for idx, title in enumerate(st.session_state.paper_titles):
+            abstract = st.session_state.paper_abstracts[idx] if idx < len(st.session_state.paper_abstracts) else ""
+            expanded_key = f"expander_{idx}"
+            if expanded_key not in st.session_state:
+                st.session_state[expanded_key] = False
+            if f"detail_loaded_{idx}" not in st.session_state:
+                st.session_state[f"detail_loaded_{idx}"] = False
+            if f"detail_content_{idx}" not in st.session_state:
+                st.session_state[f"detail_content_{idx}"] = ""
+
+            with st.expander(f"{idx+1}. {title}", expanded=st.session_state[expanded_key]):
+                def load_detail(idx=idx, title=title, abstract=abstract):
+                    detail_agent = Agent(
+                        model=Perplexity(id="sonar-pro"),
+                        tools=[
+                            ArxivTools(search_arxiv=False, read_arxiv_papers=False),
+                            ReasoningTools(add_instructions=True)
+                        ],
+                        instructions=[
+                            "你是一位专业科研助理，基于论文标题和摘要，提供详细技术解读。"
+                        ],
+                        markdown=True,
+                        show_tool_calls=False
+                    )
+                    prompt_detail = f"""
+                    你是一位专业的科研助理，擅长深入解读学术论文。请根据以下论文标题和摘要，提供详细的技术解读，包括研究背景、方法、创新点、实验结果及其意义。请用中文撰写，面向领域内专家，内容准确且深入。
+
+                    论文标题：{title}
+
+                    论文摘要：{abstract}
+
+                    请给出详细解读：
+                    """
+                    detail_response = ""
+                    detail_placeholder = st.empty()
+                    for resp in detail_agent.run(message=prompt_detail, stream=True):
+                        if isinstance(resp, RunResponse) and resp.event == RunEvent.run_response and isinstance(resp.content, str):
+                            detail_response += resp.content
+                            detail_placeholder.markdown(detail_response)
+                    st.session_state[f"detail_content_{idx}"] = detail_response
+
+                if not st.session_state[f"detail_loaded_{idx}"]:
+                    if st.button("点击加载详细解读", key=f"load_detail_btn_{idx}"):
+                        st.session_state[f"detail_loaded_{idx}"] = True
+                        load_detail()
+                else:
+                    st.markdown(st.session_state[f"detail_content_{idx}"] or "正在加载详细解读...")
+    else:
+        st.write("未检测到论文标题表格，无法展示论文详情。")
