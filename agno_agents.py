@@ -70,9 +70,9 @@ if st.button("生成学术周报", type="primary"):
         agent = Agent(
             model=OpenAIChat(
                 id="openai/gpt-4o-mini",
-                api_key=os.environ["OPENAI_API_KEY"],  # 显式传递 API Key
-                base_url=os.environ["OPENAI_API_BASE"],  # 显式指定 base_url
-                default_headers={"Authorization": f"Bearer {os.environ['OPENAI_API_KEY']}"},  # 添加 Authorization 请求头
+                api_key="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",  # 显式传递 API Key
+                base_url="https://openrouter.ai/api/v1",  # 显式指定 base_url
+                default_headers={"Authorization": f"Bearer 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"},  # 添加 Authorization 请求头
             ),
             tools=[
                 ArxivTools(search_arxiv=True, read_arxiv_papers=True),
