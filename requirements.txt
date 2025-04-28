@@ -1,8 +1,6 @@
-streamlit
+streamlit==1.40.2
 streamlit_tags
 agno
 arxiv
 pypdf
 openai
-pyecharts
-streamlit-echarts
