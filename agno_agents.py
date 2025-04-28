@@ -86,11 +86,6 @@ except ImportError:
 
 tab1, tab3, tab2 = st.tabs(["📄 学术周报", "📑 论文详情", "🔗 参考文献"])
 
-with tab1:
-    response_placeholder = st.empty()
-with tab2:
-    citations_placeholder = st.empty()
-
 # ==== 自动生成周报（仅首次，无内容时） ====
 if not st.session_state.response_content and st.session_state.keywords:
     with st.spinner("正在自动生成学术周报..."):
@@ -128,17 +123,16 @@ if not st.session_state.response_content and st.session_state.keywords:
         response_content = ""
         citations_html = ""
 
+        # 这里不再用 placeholder，直接写入 session_state
         for resp in agent.run(message=prompt, stream=True):
             if isinstance(resp, RunResponse) and resp.event == RunEvent.run_response and isinstance(resp.content, str):
                 response_content += resp.content
-                response_placeholder.markdown(response_content)
             if resp.citations and resp.citations.urls:
                 citations_html = "<ol>"
                 for citation in resp.citations.urls:
                     if citation.url:
                         citations_html += f'<li><a href="{citation.url}" target="_blank">{citation.title or citation.url}</a></li>'
                 citations_html += "</ol>"
-                citations_placeholder.markdown(citations_html, unsafe_allow_html=True)
 
         # 写入 session_state
         st.session_state.response_content = response_content
@@ -231,7 +225,6 @@ if st.button("生成学术周报", type="primary"):
                         status.text("正在生成周报...")
                     if resp.event == RunEvent.run_response and isinstance(resp.content, str):
                         response_content += resp.content
-                        response_placeholder.markdown(response_content)
 
                     if resp.citations and resp.citations.urls:
                         citations_html = "<ol>"
@@ -239,7 +232,6 @@ if st.button("生成学术周报", type="primary"):
                             if citation.url:
                                 citations_html += f'<li><a href="{citation.url}" target="_blank">{citation.title or citation.url}</a></li>'
                         citations_html += "</ol>"
-                        citations_placeholder.markdown(citations_html, unsafe_allow_html=True)
 
             # 生成完成，进度100%
             progress.progress(100)
@@ -280,13 +272,17 @@ if st.button("生成学术周报", type="primary"):
             progress.progress(100)
             status.error(f"生成过程中发生错误: {str(e)}")
 
+# =================== TAB 渲染 ===================
+
 with tab1:
-    if not st.session_state.response_content:
-        response_placeholder.markdown("请先生成学术周报。")
-    # 否则内容已由流式生成时的 placeholder 渲染
+    # 每次渲染都根据 session_state 展示内容
+    if st.session_state.response_content:
+        st.markdown(st.session_state.response_content)
+    else:
+        st.markdown("请先生成学术周报。")
 
 with tab2:
-    citations_placeholder.markdown(st.session_state.citations_html or "暂无参考文献。", unsafe_allow_html=True)
+    st.markdown(st.session_state.citations_html or "暂无参考文献。", unsafe_allow_html=True)
 
 with tab3:
     if st.session_state.paper_titles:
