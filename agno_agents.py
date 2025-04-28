@@ -1,11 +1,39 @@
 import os
 import re
+import json
 import streamlit as st
 from agno.agent import Agent
 from agno.models.perplexity import Perplexity
 from agno.tools.arxiv import ArxivTools
 from agno.tools.reasoning import ReasoningTools
 from agno.run.response import RunResponse, RunEvent
+
+# ==== 持久化相关函数 ====
+REPORT_FILE = "weekly_report.json"
+
+def save_weekly_report():
+    data = {
+        "response_content": st.session_state.get("response_content", ""),
+        "citations_html": st.session_state.get("citations_html", ""),
+        "paper_titles": st.session_state.get("paper_titles", []),
+        "paper_abstracts": st.session_state.get("paper_abstracts", []),
+        "paper_urls": st.session_state.get("paper_urls", []),
+    }
+    with open(REPORT_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def load_weekly_report():
+    if os.path.exists(REPORT_FILE):
+        with open(REPORT_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            st.session_state.response_content = data.get("response_content", "")
+            st.session_state.citations_html = data.get("citations_html", "")
+            st.session_state.paper_titles = data.get("paper_titles", [])
+            st.session_state.paper_abstracts = data.get("paper_abstracts", [])
+            st.session_state.paper_urls = data.get("paper_urls", [])
+
+# ==== 启动时自动加载持久化内容 ====
+load_weekly_report()
 
 # 设置API密钥
 api_key = os.environ.get("OPENAI_API_KEY", "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")
@@ -63,6 +91,87 @@ with tab1:
 with tab2:
     citations_placeholder = st.empty()
 
+# ==== 自动生成周报（仅首次，无内容时） ====
+if not st.session_state.response_content and st.session_state.keywords:
+    with st.spinner("正在自动生成学术周报..."):
+        agent = Agent(
+            model=Perplexity(id="sonar-pro"),
+            tools=[
+                ArxivTools(search_arxiv=True, read_arxiv_papers=True),
+                ReasoningTools(add_instructions=True)
+            ],
+            instructions=[
+                "根据提供的关键词，检索近一周arXiv上相关论文，筛选高相关性内容。",
+                "用表格列出论文标题、作者、发表时间、摘要要点和链接（用表格展示）",
+                "正文中引用论文仅用编号标记，在[编号]标记中插入超链接。",
+                "最后给出趋势分析和简要点评。"
+            ],
+            markdown=True,
+            show_tool_calls=True
+        )
+        keywords_str = ", ".join(st.session_state.keywords)
+        prompt = f"""
+        请根据如下关键词，生成一份近一周arXiv论文学术周报，内容包括：
+        1. 论文标题、作者、发表时间、摘要要点和链接(用表格展示)
+        2. 研究趋势简要分析
+        3. 学术热点点评
+        关键词：{keywords_str}
+        """
+
+        # 清空旧内容
+        st.session_state.response_content = ""
+        st.session_state.citations_html = ""
+        st.session_state.paper_titles = []
+        st.session_state.paper_abstracts = []
+        st.session_state.paper_urls = []
+
+        response_content = ""
+        citations_html = ""
+
+        for resp in agent.run(message=prompt, stream=True):
+            if isinstance(resp, RunResponse) and resp.event == RunEvent.run_response and isinstance(resp.content, str):
+                response_content += resp.content
+                response_placeholder.markdown(response_content)
+            if resp.citations and resp.citations.urls:
+                citations_html = "<ol>"
+                for citation in resp.citations.urls:
+                    if citation.url:
+                        citations_html += f'<li><a href="{citation.url}" target="_blank">{citation.title or citation.url}</a></li>'
+                citations_html += "</ol>"
+                citations_placeholder.markdown(citations_html, unsafe_allow_html=True)
+
+        # 写入 session_state
+        st.session_state.response_content = response_content
+        st.session_state.citations_html = citations_html
+
+        # 提取论文标题、摘要、链接
+        table_pattern = r"\|(.+?)\|\s*\n\|(?:[-:\s|]+)\|\s*\n((?:\|.*\|\s*\n?)+)"
+        match = re.search(table_pattern, response_content, re.DOTALL)
+        paper_titles = []
+        paper_abstracts = []
+        paper_urls = []
+        if match:
+            table_body = match.group(2)
+            for line in table_body.strip().split("\n"):
+                cols = [col.strip() for col in line.strip().strip("|").split("|")]
+                if cols:
+                    paper_titles.append(cols[0])
+                    if len(cols) > 3:
+                        paper_abstracts.append(cols[3])
+                    else:
+                        paper_abstracts.append("")
+                    if len(cols) > 4:
+                        paper_urls.append(cols[4])
+                    else:
+                        paper_urls.append("")
+        st.session_state.paper_titles = paper_titles
+        st.session_state.paper_abstracts = paper_abstracts
+        st.session_state.paper_urls = paper_urls
+
+        # === 自动保存 ===
+        save_weekly_report()
+
+# ==== 用户主动点击生成按钮 ====
 if st.button("生成学术周报", type="primary"):
     if not st.session_state.keywords:
         st.error("请至少添加一个关键词")
@@ -103,6 +212,7 @@ if st.button("生成学术周报", type="primary"):
         st.session_state.paper_urls = []
 
         response_content = ""
+        citations_html = ""
 
         try:
             status.text("正在搜索ArXiv论文...")
@@ -137,7 +247,7 @@ if st.button("生成学术周报", type="primary"):
 
             # 写入 session_state
             st.session_state.response_content = response_content
-            st.session_state.citations_html = citations_html if 'citations_html' in locals() else ""
+            st.session_state.citations_html = citations_html if citations_html else ""
 
             # 提取论文标题、摘要、链接
             table_pattern = r"\|(.+?)\|\s*\n\|(?:[-:\s|]+)\|\s*\n((?:\|.*\|\s*\n?)+)"
@@ -151,12 +261,10 @@ if st.button("生成学术周报", type="primary"):
                     cols = [col.strip() for col in line.strip().strip("|").split("|")]
                     if cols:
                         paper_titles.append(cols[0])
-                        # 摘要假设为第4列，下标3
                         if len(cols) > 3:
                             paper_abstracts.append(cols[3])
                         else:
                             paper_abstracts.append("")
-                        # 链接假设为第5列，下标4
                         if len(cols) > 4:
                             paper_urls.append(cols[4])
                         else:
@@ -164,6 +272,9 @@ if st.button("生成学术周报", type="primary"):
             st.session_state.paper_titles = paper_titles
             st.session_state.paper_abstracts = paper_abstracts
             st.session_state.paper_urls = paper_urls
+
+            # === 持久化保存 ===
+            save_weekly_report()
 
         except Exception as e:
             progress.progress(100)
@@ -188,7 +299,6 @@ with tab3:
 
             chat_key = f"chat_history_{idx}"
             if chat_key not in st.session_state:
-                # 论文详情默认prompt
                 default_prompt = f"""你是一位专业的科研助理，擅长深入解读学术论文。请根据以下论文链接，联网检索并阅读论文原文，提供详细的技术解读。解读内容应包括：
 
 - 研究背景与问题
@@ -209,23 +319,19 @@ with tab3:
                 ]
 
             with st.expander(f"{idx+1}. {title}", expanded=st.session_state[expanded_key]):
-                # 链接修正：为空时显示“暂无链接”
                 if url:
                     st.markdown(f"**摘要：** {abstract}\n\n**链接：** [{url}]")
                 else:
                     st.markdown(f"**摘要：** {abstract}\n\n**链接：** 暂无链接")
 
-                # 展示历史消息
                 for msg in st.session_state[chat_key]:
                     with st.chat_message(msg["role"]):
                         st.markdown(msg["content"])
 
-                # 聊天输入
                 user_input = st.chat_input("请输入你想针对本论文提问的问题…", key=f"chat_input_{idx}")
                 if user_input:
                     st.session_state[chat_key].append({"role": "user", "content": user_input})
 
-                    # agent 生成回复
                     agent = Agent(
                         model=Perplexity(id="sonar-pro"),
                         tools=[
@@ -236,12 +342,11 @@ with tab3:
                         markdown=True,
                         show_tool_calls=False
                     )
-                    # 拼接历史消息为prompt
                     prompt = "\n".join(
                         [f"{m['role']}: {m['content']}" for m in st.session_state[chat_key]]
                     )
                     response_content = ""
-                    chat_placeholder = st.empty()  # 用于流式显示，避免内容累积
+                    chat_placeholder = st.empty()
                     with st.chat_message("assistant"):
                         for resp in agent.run(message=prompt, stream=True):
                             if isinstance(resp, RunResponse) and resp.event == RunEvent.run_response and isinstance(resp.content, str):
